@@ -1,55 +1,32 @@
+window.wheelman = {}
+wheelman = window.wheelman
 
-window.scrollOrders = 0
+wheelman.scrollOrders = 0
+wheelman.scrollZones = []
 
-window.slowScrollTo = (position, speed) ->
+wheelman.slowScrollTo = (position, speed) ->
   scrollTop = $(window).scrollTop()
   distance = Math.abs(position - scrollTop)
-  timing = if speed then speed else window.atMost(3000, (distance * 1.5) + 500)
-  window.scrollOrders += 1
-  
-  $('#monitor').html(window.scrollOrders + ': Scrolling from ' + scrollTop + ' to ' + position + "taking " + timing)
+  timing = if speed then speed else wheelman.atMost(3000, (distance * 1.5) + 500)
+  wheelman.scrollOrders += 1
+
+  if window.WHEELMAN_DEBUG 
+    $('#monitor').html(wheelman.scrollOrders + ': Scrolling from ' + scrollTop + ' to ' + position + "taking " + timing)
+
   $('html,body').animate({scrollTop: position}, timing)
 
-$ ->
-
-  window.throttledScroll = _.throttle(window.slowScrollTo, 1000, {trailing: false})
-
-  window.nextZone = ->
-    scrolltop = $(window).scrollTop();
-    for landing in window.landings
-      if scrolltop < landing and Math.abs(scrolltop - landing) > 100
-        return window.throttledScroll(landing)
-
-  window.previousZone = ->
-    scrolltop = $(window).scrollTop();
-    for landing in window.landings by -1
-      if scrolltop > landing and Math.abs(scrolltop - landing) > 100
-        return window.throttledScroll(landing)
-        
-  $("div").swipe {
-    swipeUp: (event, direction, distance, duration, fingerCount) ->
-      window.nextZone()
-    swipeDown: (event, direction, distance, duration, fingerCount) ->
-      window.previousZone()
-   }
-
-  $("div").click ->
-    window.nextZone()
-
-
-
-window.listZones = () ->
+wheelman.listZones = () ->
   
-  for zone in window.scrollZones
+  for zone in wheelman.scrollZones
     console.log(zone.element[0].id + " - " + zone.start + " - " + zone.property)
 
-window.atMost = (lim, num) ->
+wheelman.atMost = (lim, num) ->
   if num > lim 
     return lim;
   else
     return num;
 
-window.atLeast = (lim, num) ->
+wheelman.atLeast = (lim, num) ->
   if num < lim 
     return lim;
   else
@@ -65,14 +42,10 @@ flatten = (lim, flat, num) ->
       return num
 
 
-
-
-window.scrollZones = []
-
-class window.Zone
+class wheelman.Zone
   constructor: (@start, @end, @element) ->
     @features = []
-    window.scrollZones.push this
+    wheelman.scrollZones.push this
 
   hide: ->
     $(@element.selector + " *").css('visibility', 'hidden')
@@ -81,11 +54,8 @@ class window.Zone
     $(@element.selector + " *").css('visibility', 'visible')
 
   addFeature: (start, duration, high, low, property, direction="in", subelement) ->
-#    console.log("element: " + @element.selector)
-
     if subelement
       element = $(subelement.selector, @element.selector)
-      #console.log(subelement.selector)
     else
       element = @element
     
@@ -108,9 +78,9 @@ class window.Zone
         # TODO: If only one of "low" or "high" are negative, and the other is positive, we may get weird results.
         if direction == "in" # Increasing value as position increases
           if high < 0  # If high is negative, we need to compare its abs against differential....
-            value = 0 - window.atMost(Math.abs(high), differential) # and then take the negative version of the lower.
+            value = 0 - wheelman.atMost(Math.abs(high), differential) # and then take the negative version of the lower.
           else 
-            value = window.atMost(high, differential) 
+            value = wheelman.atMost(high, differential) 
         else # Descreaing value as position increases
           if low < 0
             value = 0 - flatten(Math.abs(low) + .01, Math.abs(low), Math.abs(high) - differential) # Flatten anything within .01 to low.
@@ -150,14 +120,41 @@ class window.Zone
     @addState(scrolls, absTop, freezePoint, 'top')
 
 
-
-  
-window.scrollEm = (position) ->
+wheelman.scrollEm = (position) ->
   #console.log(position)
-  for zone in window.scrollZones
+  for zone in wheelman.scrollZones
     if position >= zone.start and position < zone.end
       zone.show()
       for feature in zone.features
         feature(position)
     else
-      zone.hide()     
+      zone.hide()
+
+
+$ ->
+
+  wheelman.throttledScroll = _.throttle(wheelman.slowScrollTo, 1000, {trailing: false})
+
+  wheelman.nextZone = ->
+    scrolltop = $(window).scrollTop();
+    for landing in wheelman.landings
+      if scrolltop < landing and Math.abs(scrolltop - landing) > 100
+        return wheelman.throttledScroll(landing)
+
+  wheelman.previousZone = ->
+    scrolltop = $(window).scrollTop();
+    for landing in wheelman.landings by -1
+      if scrolltop > landing and Math.abs(scrolltop - landing) > 100
+        return wheelman.throttledScroll(landing)
+        
+  $("div").swipe {
+    swipeUp: (event, direction, distance, duration, fingerCount) ->
+      wheelman.nextZone()
+    swipeDown: (event, direction, distance, duration, fingerCount) ->
+      wheelman.previousZone()
+   }
+
+  if window.WHEELMAN_DEBUG
+
+    $("div").click ->
+      wheelman.nextZone()
